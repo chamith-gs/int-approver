@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internal Purchase Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#eef1f6; --card:#fff; --border:#d9dfe7; --border-strong:#b8c2cf;
+    --text:#1a2332; --muted:#5a6675; --primary:#2563eb; --primary-dark:#1d4ed8;
+    --primary-soft:#e0e9ff; --success:#059669; --danger:#dc2626; --warn:#d97706;
+    --shadow-md:0 4px 12px rgba(15,23,42,.08); --shadow-lg:0 10px 30px rgba(15,23,42,.10);
+    --radius:10px; --radius-sm:6px;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',system-ui,-apple-system,sans-serif; font-size:14px; line-height:1.45;
+    -webkit-font-smoothing:antialiased; }
+  body { padding:24px 16px; }
+  .hidden { display:none !important; }
+
+  /* ---------- login ---------- */
+  #loginView { min-height:80vh; display:flex; align-items:center; justify-content:center; }
+  .login-card { background:var(--card); width:min(400px,100%); border-radius:14px;
+    box-shadow:var(--shadow-lg); overflow:hidden; }
+  .login-head { background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#0ea5e9 100%);
+    color:#fff; padding:26px 28px; }
+  .login-head h1 { margin:0; font-size:20px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; }
+  .login-head p { margin:4px 0 0; font-size:12px; opacity:.85; }
+  .login-body { padding:24px 28px 28px; display:flex; flex-direction:column; gap:14px; }
+  .login-body label { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.6px; margin-bottom:6px; display:block; }
+  .login-body input { width:100%; padding:10px 12px; border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm); font-size:14px; font-family:inherit; }
+  .login-body input:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+  .login-err { color:var(--danger); font-size:12px; font-weight:600; min-height:16px; }
+
+  /* ---------- app shell ---------- */
+  .app { max-width:1480px; margin:0 auto; }
+  .topbar { background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#0ea5e9 100%);
+    color:#fff; padding:14px 22px; display:flex; align-items:center; justify-content:space-between;
+    gap:16px; border-radius:14px 14px 0 0; flex-wrap:wrap; }
+  .topbar .brand h1 { margin:0; font-size:17px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; }
+  .topbar .brand p { margin:2px 0 0; font-size:11px; opacity:.85; }
+  .nav { display:flex; gap:4px; flex-wrap:wrap; }
+  .nav button { background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25);
+    padding:8px 14px; border-radius:var(--radius-sm); font-size:13px; font-weight:600; cursor:pointer; }
+  .nav button:hover { background:rgba(255,255,255,.22); }
+  .nav button.active { background:#fff; color:var(--primary-dark); border-color:#fff; }
+  .userbox { display:flex; align-items:center; gap:10px; font-size:12px; }
+  .userbox .who { text-align:right; line-height:1.2; }
+  .userbox .who b { display:block; font-size:13px; }
+  .userbox .who span { opacity:.8; font-size:11px; }
+  .btn-logout { background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.25);
+    padding:8px 12px; border-radius:var(--radius-sm); font-size:12px; font-weight:600; cursor:pointer; }
+  .btn-logout:hover { background:rgba(255,255,255,.22); }
+
+  .main { background:var(--card); border-radius:0 0 14px 14px; box-shadow:var(--shadow-lg);
+    padding:22px 26px 30px; min-height:60vh; }
+
+  /* ---------- shared ---------- */
+  h2.section-title { margin:0 0 16px; font-size:16px; font-weight:800; letter-spacing:.6px;
+    text-transform:uppercase; color:var(--primary-dark); }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  button { font-family:inherit; font-size:13px; font-weight:600; padding:9px 16px;
+    border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer;
+    transition:all .15s ease; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  button:active { transform:translateY(1px); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-primary { background:var(--primary); color:#fff; }
+  .btn-primary:hover { background:var(--primary-dark); }
+  .btn-outline { background:#fff; color:var(--text); border-color:var(--border-strong); }
+  .btn-outline:hover { border-color:#93a3b8; }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-danger:hover { background:#b91c1c; }
+  .btn-success { background:var(--success); color:#fff; }
+  .btn-success:hover { background:#047857; }
+  .btn-warn { background:var(--warn); color:#fff; }
+  .btn-warn:hover { background:#b45309; }
+  .btn-sm { padding:5px 10px; font-size:11px; }
+
+  table.data { width:100%; border-collapse:separate; border-spacing:0; font-size:12px;
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  table.data th { background:#f3f6fb; font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--muted); padding:9px 10px; text-align:left;
+    border-bottom:1px solid var(--border-strong); white-space:nowrap; }
+  table.data td { padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  table.data tbody tr:hover { background:#f8faff; }
+  table.data tr:last-child td { border-bottom:none; }
+
+  .badge { display:inline-block; padding:3px 9px; border-radius:999px; font-size:10px;
+    font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+  .badge.draft { background:#e5e7eb; color:#374151; }
+  .badge.in_review { background:#fef3c7; color:#92400e; }
+  .badge.pending_super_admin { background:#dbeafe; color:#1e40af; }
+  .badge.approved { background:#d1fae5; color:#065f46; }
+
+  .msg { min-height:16px; font-size:12px; font-weight:600; margin-top:8px; }
+  .msg.ok { color:var(--success); } .msg.err { color:var(--danger); }
+
+  /* ---------- order form ---------- */
+  fieldset { border:1px solid var(--border); border-radius:var(--radius); margin:0 0 20px;
+    padding:16px 18px 18px; background:#fbfcfe; min-width:0; }
+  legend { font-weight:700; font-size:12px; letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--primary-dark); padding:0 8px; background:#fbfcfe; }
+  .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px 18px; }
+  .field { display:flex; flex-direction:column; min-width:0; }
+  .field label { font-size:11px; font-weight:600; color:var(--muted); margin-bottom:6px;
+    text-transform:uppercase; letter-spacing:.6px; }
+  .field input, .field select, .field textarea { width:100%; padding:9px 12px;
+    border:1px solid var(--border-strong); border-radius:var(--radius-sm); font-size:14px;
+    font-family:inherit; background:#fff; color:var(--text); transition:all .15s ease; }
+  .field textarea { min-height:80px; resize:vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+  .field-full { grid-column:1/-1; }
+
+  .table-wrap { border-radius:var(--radius); border:1px solid var(--border); background:#fff; overflow-x:auto; }
+  table#productTable { width:100%; min-width:1250px; border-collapse:separate; border-spacing:0; font-size:11px; }
+  table#productTable th, table#productTable td { padding:4px 6px; text-align:left; vertical-align:middle;
+    border-bottom:1px solid var(--border); }
+  table#productTable th { background:#f3f6fb; font-size:9px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--muted); white-space:normal; word-wrap:break-word; line-height:1.25;
+    border-bottom:1px solid var(--border-strong); }
+  table#productTable tbody tr:hover { background:#f8faff; }
+  table#productTable:not(.show-ship) .ship-col { display:none !important; }
+  table#productTable td input, table#productTable td select { width:100%; padding:4px 6px;
+    border:1px solid transparent; border-radius:4px; font-size:11px; font-family:inherit;
+    background:transparent; color:var(--text); }
+  table#productTable td input:hover, table#productTable td select:hover { border-color:var(--border); background:#fafbfd; }
+  table#productTable td input:focus, table#productTable td select:focus {
+    outline:none; border-color:var(--primary); background:#fff; box-shadow:0 0 0 2px rgba(37,99,235,.15); }
+  table#productTable td.num input { text-align:right; font-family:'JetBrains Mono',monospace; font-size:11px; }
+  table#productTable td.calc { background:#f7f9fd; text-align:right; font-family:'JetBrains Mono',monospace;
+    font-size:11px; font-weight:600; padding-right:8px; white-space:nowrap; }
+  table#productTable td.calc.total-cell { color:var(--success); }
+  .del-btn { width:22px; height:22px; padding:0; border-radius:4px; background:transparent;
+    color:var(--danger); border:1px solid transparent; font-size:16px; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+  .del-btn:hover { background:#fee2e2; border-color:#fca5a5; }
+
+  .c-code{width:90px}.c-desc{width:160px}.c-packs{width:70px}.c-price{width:90px}
+  .c-ship{width:90px}.c-onhand{width:95px}.c-sdq{width:85px}.c-qty{width:75px}
+  .c-total{width:105px}.c-ams{width:75px}.c-dur{width:90px}.c-free{width:100px}
+  .c-urg{width:110px}.c-eta{width:120px}.c-del{width:36px}
+
+  .total-block { border-top:2px solid var(--primary); padding-top:16px; display:flex;
+    justify-content:flex-end; align-items:baseline; gap:16px; margin-top:8px; }
+  .total-block .label { font-size:13px; font-weight:700; text-transform:uppercase;
+    letter-spacing:1px; color:var(--muted); }
+  .total-block .value { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700;
+    color:var(--primary-dark); min-width:160px; text-align:right;
+    background:linear-gradient(180deg,#f0f5ff,#e0e9ff); padding:8px 18px;
+    border-radius:var(--radius-sm); }
+
+  .autocomplete { position:relative; }
+  .ac-list { position:fixed; background:#fff; border:1px solid var(--primary);
+    border-radius:var(--radius-sm); max-height:260px; overflow-y:auto; z-index:9999;
+    display:none; box-shadow:var(--shadow-md); }
+  .ac-list > div { padding:6px 10px; cursor:pointer; font-size:11px;
+    border-bottom:1px solid #f1f3f7; display:flex; align-items:center; gap:8px; }
+  .ac-list > div:hover, .ac-list > div.active { background:var(--primary); color:#fff; }
+  .ac-list .code { font-weight:700; font-family:'JetBrains Mono',monospace; font-size:11px; min-width:60px; }
+  .ac-list .desc { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ac-list .packs { color:var(--muted); font-size:10px; font-weight:600; margin-left:auto; }
+  .ac-list > div:hover .packs, .ac-list > div.active .packs { color:#dbeafe; }
+
+  .empty-state { text-align:center; padding:40px 20px; color:var(--muted); font-size:13px; }
+  .form-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+
+  @media (max-width:1100px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:640px) {
+    body { padding:12px 8px; } .main { padding:16px; } .topbar { padding:12px 16px; }
+    .grid { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginView">
+  <div class="login-card">
+    <div class="login-head">
+      <h1>Internal Purchase Order</h1>
+      <p>Sign in to continue</p>
+    </div>
+    <div class="login-body">
+      <div>
+        <label for="loginEmp">Employee No (6 digits)</label>
+        <input id="loginEmp" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 000001" autocomplete="username">
+      </div>
+      <div>
+        <label for="loginPw">Password</label>
+        <input id="loginPw" type="password" placeholder="Password" autocomplete="current-password">
+      </div>
+      <div class="login-err" id="loginErr"></div>
+      <button class="btn-primary" id="loginBtn" style="justify-content:center;padding:11px;font-size:14px">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView" class="app hidden">
+  <div class="topbar">
+    <div class="brand">
+      <h1>Internal Purchase Order</h1>
+      <p>Product ordering &amp; shipment tracking</p>
+    </div>
+    <div class="nav" id="nav"></div>
+    <div class="userbox">
+      <div class="who">
+        <b id="meName">—</b>
+        <span id="meMeta">—</span>
+      </div>
+      <button class="btn-logout" id="logoutBtn">Logout</button>
+    </div>
+  </div>
+  <div class="main">
+
+    <!-- ORDERS LIST -->
+    <section id="view-orders" class="view">
+      <h2 class="section-title">Orders</h2>
+      <div class="toolbar">
+        <button class="btn-primary" id="btnNewOrder">+ New Order</button>
+        <button class="btn-outline" id="btnRefreshOrders">Refresh</button>
+      </div>
+      <div id="ordersMsg" class="msg"></div>
+      <div id="ordersTableWrap"></div>
+    </section>
+
+    <!-- ORDER FORM -->
+    <section id="view-order-form" class="view hidden">
+      <h2 class="section-title" id="orderFormTitle">New Order</h2>
+      <div id="orderMsg" class="msg"></div>
+
+      <fieldset>
+        <legend>Order Details</legend>
+        <div class="grid">
+          <div class="field"><label>Supplier</label><input type="text" id="f_supplier"></div>
+          <div class="field"><label>Date</label><input type="date" id="f_order_date"></div>
+          <div class="field"><label>Month</label><input type="text" id="f_month"></div>
+          <div class="field"><label>Order Ref No</label><input type="text" id="f_order_ref"></div>
+          <div class="field"><label>INCO Terms</label>
+            <select id="f_inco_term"><option>CIF</option><option>FOB</option><option>CIP</option>
+              <option>CFR</option><option>EXW</option><option>CPT</option><option>FCA</option></select></div>
+          <div class="field"><label>Currency</label>
+            <select id="f_currency"><option>USD</option><option>EUR</option><option>GBP</option>
+              <option>LKR</option><option>INR</option><option>CNY</option><option>JPY</option>
+              <option>AUD</option><option>SGD</option><option>AED</option></select></div>
+          <div class="field"><label>Payment Method</label>
+            <select id="f_payment_method"><option>L/C</option><option>T/T</option></select></div>
+          <div class="field"><label>Credit Days</label><input type="number" id="f_credit_days" min="0" step="1"></div>
+          <div class="field"><label>Shipping Method</label>
+            <select id="f_shipping_method"><option>Air freight</option><option>Sea freight</option></select></div>
+          <div class="field"><label>Market</label>
+            <select id="f_market"><option>Tender Market</option><option>Private Market</option></select></div>
+          <div class="field"><label>Prepared By</label><input type="text" id="f_prepared_by"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Products</legend>
+        <div class="toolbar">
+          <button class="btn-outline btn-sm" id="btnAddRow">+ Add Product Row</button>
+        </div>
+        <div class="table-wrap">
+          <table id="productTable">
+            <thead>
+              <tr>
+                <th class="c-code">Product Code</th>
+                <th class="c-desc">Description</th>
+                <th class="c-packs">Packs</th>
+                <th class="c-price" id="priceTh">CIF</th>
+                <th class="c-ship ship-col" id="shipTh">Shipping</th>
+                <th class="c-onhand">On Hand Balance</th>
+                <th class="c-sdq">Shipment Due Qty</th>
+                <th class="c-qty">Quantity</th>
+                <th class="c-total" id="totalTh">Total</th>
+                <th class="c-ams">AMS</th>
+                <th class="c-dur">Stock Duration</th>
+                <th class="c-free">Free Goods (QTY)</th>
+                <th class="c-urg">Shipment / Urgency</th>
+                <th class="c-eta">ETA</th>
+                <th class="c-del"></th>
+              </tr>
+            </thead>
+            <tbody id="productBody"></tbody>
+          </table>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Notes</legend>
+        <div class="grid">
+          <div class="field field-full">
+            <label>Additional Notes / Terms &amp; Conditions</label>
+            <textarea id="f_notes" rows="4"></textarea>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="total-block">
+        <span class="label" id="totalLabel">Total Order Value</span>
+        <span class="value" id="totalOrderValue">0.00</span>
+      </div>
+
+      <div class="form-actions" id="orderFormActions"></div>
+    </section>
+
+    <!-- USERS (super admin) -->
+    <section id="view-users" class="view hidden">
+      <h2 class="section-title">Users</h2>
+      <div class="toolbar">
+        <button class="btn-primary" id="btnNewUser">+ Add User</button>
+        <button class="btn-outline" id="btnRefreshUsers">Refresh</button>
+      </div>
+      <div id="usersMsg" class="msg"></div>
+      <div id="usersTableWrap"></div>
+
+      <div id="userFormWrap" class="hidden" style="margin-top:24px">
+        <h2 class="section-title" id="userFormTitle">New User</h2>
+        <fieldset>
+          <legend>User Details</legend>
+          <div class="grid">
+            <div class="field"><label>Employee No (6 digits)</label><input type="text" id="u_emp" maxlength="6"></div>
+            <div class="field"><label>Name</label><input type="text" id="u_name"></div>
+            <div class="field"><label>Designation</label><input type="text" id="u_designation"></div>
+            <div class="field"><label>Role</label>
+              <select id="u_role">
+                <option value="manager">manager</option>
+                <option value="admin">admin</option>
+                <option value="super_admin">super_admin</option>
+              </select></div>
+            <div class="field"><label>Division</label><input type="text" id="u_division"></div>
+            <div class="field"><label>Password <span id="u_pwHint" style="font-weight:400;text-transform:none">(required for new)</span></label>
+              <input type="password" id="u_password" placeholder="Leave blank to keep current"></div>
+            <div class="field"><label>Active</label>
+              <select id="u_is_active"><option value="1">Yes</option><option value="0">No</option></select></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-primary" id="btnSaveUser">Save User</button>
+            <button class="btn-outline" id="btnCancelUser">Cancel</button>
+          </div>
+          <div id="userMsg" class="msg"></div>
+        </fieldset>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section id="view-products" class="view hidden">
+      <h2 class="section-title">Products</h2>
+      <div class="toolbar">
+        <input type="text" id="prodSearch" placeholder="Search product code or description…"
+          style="padding:9px 12px;border:1px solid var(--border-strong);border-radius:6px;min-width:260px;font-family:inherit">
+      </div>
+      <div id="productsMsg" class="msg"></div>
+      <div id="productsTableWrap"></div>
+    </section>
+
+    <!-- STOCK -->
+    <section id="view-stock" class="view hidden">
+      <h2 class="section-title">Stock Upload</h2>
+      <p style="font-size:12px;color:var(--muted)">Upload Excel/CSV with two columns: <b>Row Labels</b> (product code) and <b>Sum of Available Qty</b>. Each upload adds a dated stock snapshot.</p>
+      <div class="toolbar">
+        <input type="file" id="stockFile" accept=".xlsx,.xls,.csv">
+        <button class="btn-primary" id="btnUploadStock">Upload Stock</button>
+      </div>
+      <div id="stockMsg" class="msg"></div>
+      <div id="stockTableWrap"></div>
+    </section>
+
+    <!-- AMS -->
+    <section id="view-ams" class="view hidden">
+      <h2 class="section-title">AMS Upload</h2>
+      <p style="font-size:12px;color:var(--muted)">Upload Excel/CSV with 4 columns: <b>Part No</b>, then three <b>&lt;Month&gt;_Invoiced Quantity</b> columns. Average is computed and stored.</p>
+      <div class="toolbar">
+        <input type="file" id="amsFile" accept=".xlsx,.xls,.csv">
+        <button class="btn-primary" id="btnUploadAms">Upload AMS</button>
+      </div>
+      <div id="amsMsg" class="msg"></div>
+      <div id="amsTableWrap"></div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
