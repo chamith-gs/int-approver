@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internal Apps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#eef1f6; --card:#fff; --border:#d9dfe7; --text:#1a2332; --muted:#5a6675;
+    --primary:#2563eb; --primary-dark:#1d4ed8; --danger:#dc2626; --success:#059669; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Inter',system-ui,sans-serif; font-size:14px; color:var(--text); background:var(--bg); min-height:100vh; }
+  .login-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
+    background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5e9); }
+  .card { background:var(--card); border-radius:14px; padding:28px; width:min(400px,100%); box-shadow:0 10px 30px rgba(15,23,42,.3); }
+  .card h1 { margin:0 0 4px; font-size:20px; } .card p.sub { margin:0 0 18px; color:var(--muted); font-size:13px; }
+  .field { margin-bottom:12px; } .field label { display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
+  .field input { width:100%; padding:10px 12px; border:1px solid #b8c2cf; border-radius:6px; font:inherit; }
+  .field input:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+  button { font:inherit; font-weight:600; cursor:pointer; border-radius:6px; border:1px solid transparent; padding:10px 16px; }
+  .btn-main { width:100%; background:var(--primary); color:#fff; } .btn-main:hover { background:var(--primary-dark); }
+  .msg { font-size:12px; font-weight:600; margin-top:10px; min-height:16px; } .msg.err { color:var(--danger); } .msg.ok { color:var(--success); }
+
+  .home { display:none; }
+  .topbar { background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5e9); color:#fff; padding:18px 28px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .topbar h1 { margin:0; font-size:20px; letter-spacing:1px; text-transform:uppercase; }
+  .who { font-size:13px; opacity:.9; } .btn-out { background:rgba(255,255,255,.14); color:#fff; border-color:rgba(255,255,255,.3); margin-left:12px; padding:7px 14px; }
+  .wrap { max-width:1000px; margin:0 auto; padding:28px 20px; }
+  .wrap h2 { font-size:13px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); margin:0 0 14px; }
+  .apps { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+  .app { display:block; text-decoration:none; color:inherit; background:#fff; border:1px solid var(--border); border-radius:12px;
+    padding:20px; transition:all .15s; }
+  .app:hover { border-color:var(--primary); box-shadow:0 6px 18px rgba(37,99,235,.15); transform:translateY(-2px); }
+  .app .ico { font-size:28px; } .app h3 { margin:10px 0 4px; font-size:16px; } .app p { margin:0; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="card">
+    <h1>Internal Apps</h1>
+    <p class="sub" id="loginSub">Sign in with your employee number</p>
+
+    <div id="step1">
+      <div class="field"><label>Employee No</label><input id="aEmp" inputmode="numeric" maxlength="6" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input id="aPw" type="password" autocomplete="current-password"></div>
+      <button class="btn-main" id="aGo">Sign in</button>
+    </div>
+
+    <div id="step2" hidden>
+      <div class="field"><label>One-time code (check your email)</label><input id="aOtp" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
+      <button class="btn-main" id="aVerify">Verify</button>
+    </div>
+
+    <div id="step3" hidden>
+      <div class="field"><label>Current password</label><input id="aOld" type="password" autocomplete="current-password"></div>
+      <div class="field"><label>New password (min 8 characters)</label><input id="aNew" type="password" autocomplete="new-password"></div>
+      <button class="btn-main" id="aChange">Save password</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<div class="home" id="home">
+  <div class="topbar">
+    <h1>Internal Apps</h1>
+    <div><span class="who" id="who"></span><button class="btn-out" id="bOut">Sign out</button></div>
+  </div>
+  <div class="wrap">
+    <h2>Your applications</h2>
+    <div class="apps" id="apps"></div>
+  </div>
+</div>
+
+<script>
+/* ---- settings: put your Worker URL here (same value is also in app.js) ---- */
+const API = 'https://dark-truth-f3df.chamith-c96.workers.dev/api';
+
+/* ---- add new apps here ---- */
+const APPS = [
+  { name: 'Internal Purchase Order', desc: 'Prepare, review and approve internal purchase orders.', href: 'int-purchase-order.html', icon: '🧾' },
+];
+
+const $ = id => document.getElementById(id);
+let token = sessionStorage.getItem('po_jwt') || '', pendingEmp = '', lastPw = '';
+
+const msg = (t, k) => { $('msg').textContent = t || ''; $('msg').className = 'msg ' + (k || ''); };
+const step = n => ['step1', 'step2', 'step3'].forEach((id, i) => $(id).hidden = i !== n - 1);
+
+async function api(path, method = 'GET', payload) {
+  const r = await fetch(API + path, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Request failed (' + r.status + ')');
+  return j;
+}
+
+function showApps(user) {
+  $('loginScreen').style.display = 'none';
+  $('home').style.display = 'block';
+  $('who').textContent = user.name + ' · ' + user.role;
+  $('apps').innerHTML = APPS.map(a =>
+    `<a class="app" href="${a.href}"><div class="ico">${a.icon}</div><h3>${a.name}</h3><p>${a.desc}</p></a>`).join('');
+}
+
+function showLogin(sub) {
+  $('home').style.display = 'none';
+  $('loginScreen').style.display = 'flex';
+  $('loginSub').textContent = 'Sign in with your employee number';
+  step(1); msg('');
+}
+
+function saveToken(t) { token = t; sessionStorage.setItem('po_jwt', t); }
+
+function afterAuth(j) {
+  saveToken(j.token);
+  if (j.must_change_password) { step(3); $('loginSub').textContent = 'Set a new password to continue'; msg(''); }
+  else showApps(j.user);
+}
+
+$('aGo').onclick = async () => {
+  try {
+    msg('Signing in…'); lastPw = $('aPw').value;
+    const j = await api('/login', 'POST', { emp: $('aEmp').value.trim(), password: lastPw });
+    if (j.otp_required) { pendingEmp = j.emp; step(2); msg('A one-time code was emailed to you.', 'ok'); }
+    else { $('aOld').value = lastPw; afterAuth(j); }
+  } catch (e) { msg(e.message, 'err'); }
+};
+
+$('aVerify').onclick = async () => {
+  try {
+    const j = await api('/verify-otp', 'POST', { emp: pendingEmp, code: $('aOtp').value.trim() });
+    $('aOld').value = lastPw; afterAuth(j);
+  } catch (e) { msg(e.message, 'err'); }
+};
+
+$('aChange').onclick = async () => {
+  try {
+    const j = await api('/change-password', 'POST', { old_password: $('aOld').value, new_password: $('aNew').value });
+    saveToken(j.token); showApps(j.user);
+  } catch (e) { msg(e.message, 'err'); }
+};
+
+$('bOut').onclick = () => { sessionStorage.removeItem('po_jwt'); token = ''; $('aPw').value = ''; showLogin(); };
+
+['aEmp', 'aPw'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('aGo').click(); }));
+$('aOtp').addEventListener('keydown', e => { if (e.key === 'Enter') $('aVerify').click(); });
+$('aNew').addEventListener('keydown', e => { if (e.key === 'Enter') $('aChange').click(); });
+
+/* already signed in? skip the login form */
+(async () => {
+  if (!token) return;
+  try {
+    const { user } = await api('/me');
+    if (user.must_change_password) { step(3); $('loginSub').textContent = 'Set a new password to continue'; }
+    else showApps(user);
+  } catch (e) { sessionStorage.removeItem('po_jwt'); token = ''; }
+})();
+</script>
+</body>
+</html>
