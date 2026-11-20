@@ -294,7 +294,7 @@ $('amsFile').addEventListener('change', async e => {
 let STK_MAP = new Map(), STK_DATE = '';
 function applyStock(tr, code) {
   const el = tr.querySelector('.onhand-input'), e = STK_MAP.get(keyOf(code));
-  if (e) { el.value = e.qty; el.title = 'Available qty' + (STK_DATE ? ' as of ' + STK_DATE : ''); }
+  if (e) { el.value = e.available_qty; el.title = 'Available qty' + (STK_DATE ? ' as of ' + STK_DATE : ''); }
 }
 async function loadStock() {
   try {
