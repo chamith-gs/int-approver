@@ -62,7 +62,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach(m => m.classList.remove('show'));
 });
 
-function updatePaymentUI() { $('ttDaysWrap').style.display = $('paymentMethod').value === 'T/T' ? '' : 'none'; }
+function updatePaymentUI() { $('ttDaysWrap').style.display = $('paymentMethod').value === 'L/C' ? '' : 'none'; }
 function updateOnHandHeader() { const d = $('orderDate').value; $('onHandTh').textContent = d ? 'On Hand Balance at ' + d : 'On Hand Balance'; }
 function syncMonthFromDate() {
   const d = $('orderDate').value; if (!d) return;
