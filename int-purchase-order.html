@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internal Purchase Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root { --bg:#eef1f6; --card:#fff; --border:#d9dfe7; --border-strong:#b8c2cf; --text:#1a2332; --muted:#5a6675; --primary:#2563eb; --primary-dark:#1d4ed8; --primary-soft:#e0e9ff; --success:#059669; --danger:#dc2626; --shadow-md:0 4px 12px rgba(15,23,42,.08); --shadow-lg:0 10px 30px rgba(15,23,42,.10); --radius:10px; --radius-sm:6px; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter',system-ui,-apple-system,sans-serif; font-size:14px; line-height:1.45; }
+  body { padding:24px 16px; }
+  .sheet { background:var(--card); max-width:1480px; margin:0 auto; border-radius:14px; box-shadow:var(--shadow-lg); overflow:hidden; }
+  .sheet-header { background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 55%,#0ea5e9 100%); color:#fff; padding:18px 28px; display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+  .sheet-header h1 { font-size:20px; font-weight:800; letter-spacing:1.5px; margin:0; text-transform:uppercase; }
+  .sheet-header .subtitle { font-size:12px; opacity:.85; margin-top:2px; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
+  button { font-family:inherit; font-size:13px; font-weight:600; padding:9px 16px; border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer; transition:all .15s ease; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  button:active { transform:translateY(1px); } button:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-primary { background:#fff; color:var(--primary-dark); } .btn-primary:hover { background:#f0f5ff; }
+  .btn-ghost { background:rgba(255,255,255,.12); color:#fff; border-color:rgba(255,255,255,.25); } .btn-ghost:hover { background:rgba(255,255,255,.22); }
+  .sheet-body { padding:24px 28px 28px; }
+  fieldset { border:1px solid var(--border); border-radius:var(--radius); margin:0 0 20px; padding:16px 18px 18px; background:#fbfcfe; min-width:0; }
+  legend { font-weight:700; font-size:12px; letter-spacing:1.2px; text-transform:uppercase; color:var(--primary-dark); padding:0 8px; background:#fbfcfe; }
+  .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px 18px; }
+  .field { display:flex; flex-direction:column; min-width:0; }
+  .field label { font-size:11px; font-weight:600; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.6px; }
+  .field input, .field select, .field textarea { width:100%; padding:9px 12px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); font-size:14px; font-family:inherit; background:#fff; color:var(--text); }
+  .field input:focus, .field select:focus, .field textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+  .field textarea { min-height:80px; resize:vertical; }
+  .field-full { grid-column:1/-1; }
+  .table-wrap { border-radius:var(--radius); border:1px solid var(--border); background:#fff; overflow-x:auto; }
+  table#productTable { width:100%; min-width:1250px; border-collapse:separate; border-spacing:0; font-size:11px; }
+  table#productTable th, table#productTable td { padding:4px 6px; text-align:left; vertical-align:middle; border-bottom:1px solid var(--border); }
+  table#productTable th { background:#f3f6fb; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); white-space:normal; word-wrap:break-word; line-height:1.25; border-bottom:1px solid var(--border-strong); }
+  table#productTable tbody tr:hover { background:#f8faff; }
+  table#productTable:not(.show-ship) .ship-col { display:none !important; }
+  table#productTable td input, table#productTable td select, table#productTable td textarea { width:100%; padding:4px 6px; border:1px solid transparent; border-radius:4px; font-size:11px; font-family:inherit; background:transparent; color:var(--text); }
+  table#productTable td input:hover, table#productTable td select:hover, table#productTable td textarea:hover { border-color:var(--border); background:#fafbfd; }
+  table#productTable td input:focus, table#productTable td select:focus, table#productTable td textarea:focus { outline:none; border-color:var(--primary); background:#fff; box-shadow:0 0 0 2px rgba(37,99,235,.15); }
+  table#productTable td.num input { text-align:right; font-family:'JetBrains Mono',monospace; font-size:11px; }
+  table#productTable td.calc { background:#f7f9fd; text-align:right; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; padding-right:8px; white-space:nowrap; }
+  table#productTable td.calc.total-cell { color:var(--success); }
+  .del-btn { width:22px; height:22px; padding:0; border-radius:4px; background:transparent; color:var(--danger); border:1px solid transparent; font-size:16px; line-height:1; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+  .del-btn:hover { background:#fee2e2; border-color:#fca5a5; }
+  .c-code{width:90px}.c-desc{width:160px}.c-packs{width:70px}.c-price{width:90px}.c-ship{width:90px}.c-onhand{width:95px}.c-sdq{width:85px}.c-qty{width:75px}.c-total{width:105px}.c-ams{width:75px}.c-dur{width:90px}.c-free{width:100px}.c-urg{width:110px}.c-eta{width:120px}.c-del{width:36px}
+  .total-block { border-top:2px solid var(--primary); padding-top:16px; display:flex; justify-content:flex-end; align-items:baseline; gap:16px; margin-top:8px; }
+  .total-block .label { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
+  .total-block .value { font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; color:var(--primary-dark); min-width:160px; text-align:right; background:linear-gradient(180deg,#f0f5ff,#e0e9ff); padding:8px 18px; border-radius:var(--radius-sm); }
+  .ac-list { position:fixed; background:#fff; border:1px solid var(--primary); border-radius:var(--radius-sm); max-height:260px; overflow-y:auto; z-index:9999; display:none; box-shadow:var(--shadow-md); }
+  .ac-list > div { padding:6px 10px; cursor:pointer; font-size:11px; border-bottom:1px solid #f1f3f7; display:flex; align-items:center; gap:8px; }
+  .ac-list > div:hover, .ac-list > div.active { background:var(--primary); color:#fff; }
+  .ac-list .code { font-weight:700; font-family:'JetBrains Mono',monospace; font-size:11px; min-width:60px; }
+  .ac-list .desc { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ac-list .packs { color:var(--muted); font-size:10px; font-weight:600; margin-left:auto; white-space:nowrap; }
+  .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:flex-start; justify-content:center; padding:6vh 12px 12px; z-index:10000; overflow-y:auto; }
+  .modal-backdrop.show { display:flex; }
+  .modal { background:#fff; width:min(680px,100%); border-radius:14px; box-shadow:var(--shadow-lg); overflow:hidden; }
+  .mhead { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; }
+  .mhead h2 { margin:0; font-size:15px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; }
+  .mx { background:transparent; color:#fff; font-size:22px; padding:0 6px; line-height:1; cursor:pointer; border:none; }
+  .mbody { padding:18px 20px 20px; display:flex; flex-direction:column; gap:14px; }
+  .pm-msg { font-size:12px; min-height:16px; font-weight:600; } .pm-msg.ok { color:var(--success); } .pm-msg.err { color:var(--danger); }
+  .sig-box { border:1px dashed var(--border-strong); border-radius:8px; padding:10px; text-align:center; background:#fafbfd; min-height:80px; display:flex; align-items:center; justify-content:center; }
+  .sig-box img { max-height:70px; max-width:100%; }
+  .sig-ph { color:var(--muted); font-size:12px; }
+  .st-chip { display:inline-block; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; background:#e0e9ff; color:#1e40af; }
+  .ord-row { display:grid; grid-template-columns:60px 1fr 160px 100px 100px; gap:10px; padding:9px 10px; border-bottom:1px solid #f1f3f7; cursor:pointer; font-size:12px; align-items:center; }
+  .ord-row:hover { background:#f0f5ff; }
+  .ord-row .g { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .st { padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; text-transform:uppercase; text-align:center; }
+  .st-draft { background:#e5e7eb; color:#374151; }
+  .st-in_review { background:#fef3c7; color:#92400e; }
+  .st-pending_approval { background:#dbeafe; color:#1e40af; }
+  .st-approved { background:#d1fae5; color:#065f46; }
+  .st-rejected { background:#fee2e2; color:#991b1b; }
+  #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1a2332; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; display:none; z-index:99999; }
+  #toast.err { background:var(--danger); }
+  .ro { pointer-events:none; opacity:.85; }
+  .orders-panel { border-bottom:1px solid var(--border); background:#fbfcfe; padding:12px 28px 0; }
+  .orders-top { display:flex; gap:12px; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; }
+  .tabs { display:flex; gap:4px; overflow-x:auto; max-width:100%; }
+  .tab { background:transparent; color:var(--muted); border:1px solid transparent; border-bottom:none; border-radius:8px 8px 0 0; padding:9px 14px; font-size:13px; }
+  .tab:hover { color:var(--text); background:#eef2fa; }
+  .tab.on { background:#fff; color:var(--primary-dark); border-color:var(--border); box-shadow:0 2px 0 #fff; position:relative; top:1px; }
+  .tab .cnt { background:#e5e7eb; color:#374151; border-radius:999px; font-size:11px; padding:1px 7px; }
+  .tab.on .cnt { background:var(--primary); color:#fff; }
+  #ordSearch { padding:7px 10px; border:1px solid var(--border-strong); border-radius:6px; font:inherit; font-size:12px; width:240px; max-width:100%; margin-bottom:6px; }
+  #ordList { background:#fff; border:1px solid var(--border); border-radius:0 8px 8px 8px; max-height:300px; overflow-y:auto; margin-bottom:14px; }
+  .ord-row { grid-template-columns:56px 1fr 170px 90px 130px 26px; }
+  .ord-row.sel { background:#e0e9ff; }
+  .ord-row .amt { text-align:right; font-family:'JetBrains Mono',monospace; }
+  .ord-row .rj { color:var(--danger); font-size:11px; margin-left:6px; }
+  .empty { padding:18px; color:var(--muted); text-align:center; }
+  @media (max-width:640px) { .orders-panel { padding:10px 10px 0; } .ord-row { grid-template-columns:50px 1fr 100px; } .ord-row .g:nth-of-type(2), .ord-row .g:nth-of-type(3) { display:none; } }
+  @media print { body { padding:0; background:#fff; } .toolbar, .orders-panel, #emptyHint, #toast, .del-btn, .ac-list { display:none !important; } .sheet { box-shadow:none; border-radius:0; } .sheet-header { background:#fff !important; color:#000; padding:8px 0; } .ro { opacity:1; } table#productTable { min-width:0; } }
+  @media (max-width:1100px) { .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:640px) { body { padding:12px 8px; } .sheet-body { padding:16px; } .grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="sheet-header">
+    <div>
+      <h1>Internal Purchase Order</h1>
+      <div class="subtitle" id="whoChip">Loading…</div>
+    </div>
+    <div class="toolbar">
+      <button class="btn-ghost" id="bBack">← Apps</button>
+      <button class="btn-ghost" id="bList">📋 Orders</button>
+      <button class="btn-ghost" id="bNew">+ New</button>
+      <button class="btn-ghost" id="bSig">✍ Signature</button>
+      <button class="btn-ghost" id="bProducts" style="display:none">🗂 Products</button>
+      <button class="btn-ghost" id="bAms" style="display:none">📈 AMS</button>
+      <button class="btn-ghost" id="bStock" style="display:none">📦 Stock</button>
+      <button class="btn-ghost" id="bCsv">⬇ CSV</button>
+      <button class="btn-primary" id="bPrint">🖨 Print / PDF</button>
+      <button class="btn-ghost" id="bOut">Sign out</button>
+    </div>
+  </div>
+  <div class="orders-panel" id="ordPanel">
+    <div class="orders-top">
+      <div class="tabs" id="ordTabs" role="tablist"></div>
+      <input type="search" id="ordSearch" placeholder="Search # / supplier / ref / name" autocomplete="off">
+    </div>
+    <div id="ordList"></div>
+  </div>
+  <div class="empty" id="emptyHint" style="display:none;padding:28px">Select an order from the list above to view it.</div>
+  <div class="sheet-body" id="sheetBody">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <span class="st-chip" id="stChip">New order</span>
+      <button class="btn-primary" id="bSave" style="background:var(--primary);color:#fff;display:none">Save Draft</button>
+      <button class="btn-primary" id="bSubmit" style="background:var(--success);color:#fff;display:none">Submit for Review</button>
+      <button class="btn-primary" id="bReview" style="background:var(--warn,#d97706);color:#fff;display:none">Pass Review</button>
+      <button class="btn-primary" id="bApprove" style="background:var(--success);color:#fff;display:none">Approve</button>
+      <button class="btn-primary" id="bReject" style="background:var(--danger);color:#fff;display:none">Reject</button>
+      <button class="btn-ghost" id="bAddRow" style="background:#fff;color:var(--text);border-color:var(--border-strong);display:none">+ Add Row</button>
+    </div>
+
+    <fieldset>
+      <legend>Order Details</legend>
+      <div class="grid">
+        <div class="field"><label>Supplier</label><input type="text" id="supplier"></div>
+        <div class="field"><label>Date</label><input type="date" id="orderDate"></div>
+        <div class="field"><label>Month</label><input type="text" id="month"></div>
+        <div class="field"><label>Order Ref No</label><input type="text" id="orderRef"></div>
+        <div class="field"><label>INCO Terms</label>
+          <select id="incoTerm"><option>CIF</option><option>FOB</option><option>CIP</option><option>CFR</option><option>EXW</option><option>CPT</option><option>FCA</option></select></div>
+        <div class="field"><label>Currency</label>
+          <select id="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>LKR</option><option>INR</option><option>CNY</option><option>JPY</option><option>AUD</option><option>SGD</option><option>AED</option></select></div>
+        <div class="field"><label>Payment Method</label>
+          <select id="paymentMethod"><option>L/C</option><option>T/T</option></select></div>
+        <div class="field" id="ttDaysWrap" style="display:none"><label>Credit Days</label><input type="number" id="ttDays" min="0" step="1"></div>
+        <div class="field"><label>Shipping Method</label>
+          <select id="shippingMethod"><option>Air freight</option><option>Sea freight</option></select></div>
+        <div class="field"><label>Market</label>
+          <select id="market"><option>Tender Market</option><option>Private Market</option></select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Products</legend>
+      <div class="table-wrap">
+        <table id="productTable">
+          <thead><tr>
+            <th class="c-code">Product Code</th>
+            <th class="c-desc">Description</th>
+            <th class="c-packs">Packs</th>
+            <th class="c-price" id="priceTh">CIF</th>
+            <th class="c-ship ship-col" id="shipTh">Shipping</th>
+            <th class="c-onhand" id="onHandTh">On Hand Balance</th>
+            <th class="c-sdq">Shipment Due Qty</th>
+            <th class="c-qty">Quantity</th>
+            <th class="c-total" id="totalTh">Total</th>
+            <th class="c-ams">AMS</th>
+            <th class="c-dur">Stock Duration</th>
+            <th class="c-free">Free Goods (QTY)</th>
+            <th class="c-urg">Shipment / Urgency</th>
+            <th class="c-eta">ETA</th>
+            <th class="c-del"></th>
+          </tr></thead>
+          <tbody id="productBody"></tbody>
+        </table>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:10px" id="amsInfo"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px" id="stkInfo"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Notes</legend>
+      <div class="field field-full"><label>Additional Notes</label><textarea id="notes" rows="4"></textarea></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Sign-off</legend>
+      <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;display:block">Prepared By</label>
+          <div class="sig-box" id="sigPrep"><span class="sig-ph">signed automatically</span></div>
+          <div style="font-size:11px;margin-top:4px"><span id="sigPrepN"></span> <span style="color:var(--muted)" id="sigPrepD"></span></div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;display:block">Reviewed By</label>
+          <div class="sig-box" id="sigRev"><span class="sig-ph">—</span></div>
+          <div style="font-size:11px;margin-top:4px"><span id="sigRevN"></span> <span style="color:var(--muted)" id="sigRevD"></span></div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;display:block">Approved By</label>
+          <div class="sig-box" id="sigApp"><span class="sig-ph">—</span></div>
+          <div style="font-size:11px;margin-top:4px"><span id="sigAppN"></span> <span style="color:var(--muted)" id="sigAppD"></span></div>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="total-block">
+      <span class="label" id="totalLabel">Total Order Value</span>
+      <span class="value" id="totalOrderValue">0.00</span>
+    </div>
+  </div>
+</div>
+
+<!-- Signature modal -->
+<div class="modal-backdrop" id="sigModal">
+  <div class="modal">
+    <div class="mhead"><h2>My Signature</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <p style="font-size:12px;color:var(--muted);margin:0">Upload a PNG of your signature (max 150 KB, transparent background recommended). It will be applied automatically when you submit, review or approve.</p>
+      <div class="sig-box" id="sigPrev"><span class="sig-ph">No signature uploaded</span></div>
+      <input type="file" id="sigFile" accept="image/png">
+      <button class="btn-primary" id="sigSave" style="background:var(--primary);color:#fff" disabled>Save Signature</button>
+      <div class="pm-msg" id="sigMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Products modal -->
+<div class="modal-backdrop" id="pmModal">
+  <div class="modal">
+    <div class="mhead"><h2>Update Products</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <div class="field"><label>Search product</label><input id="pmSearch" autocomplete="off" placeholder="Type to search or leave empty for new"></div>
+      <div id="pmList" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;display:none"></div>
+      <div class="field"><label>Product Code</label><input id="pmCode"></div>
+      <div class="field"><label>Description</label><input id="pmDesc"></div>
+      <div class="field"><label>Packs</label><input id="pmPacks"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-primary" id="pmUpdateBtn" style="background:var(--primary);color:#fff" disabled>Update Record</button>
+        <button class="btn-primary" id="pmAddBtn" style="background:var(--success);color:#fff">Add as New</button>
+        <button class="btn-ghost" id="pmClearBtn" style="background:#fff;color:var(--text);border-color:var(--border-strong)">Clear</button>
+        <button class="btn-ghost" id="pmImport" style="background:#fff;color:var(--text);border-color:var(--border-strong)">Import products.js</button>
+      </div>
+      <div class="pm-msg" id="pmMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- AMS modal -->
+<div class="modal-backdrop" id="amsModal">
+  <div class="modal">
+    <div class="mhead"><h2>Upload AMS</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <p style="font-size:12px;color:var(--muted);margin:0">Excel/CSV: <b>Part No</b> then three <b>&lt;Month&gt;_Invoiced Quantity</b> columns. Average is computed server-side.</p>
+      <input type="file" id="amsFile" accept=".xlsx,.xls,.csv">
+      <div class="pm-msg" id="amsMsg"></div>
+      <div style="font-size:12px;color:var(--muted)" id="amsStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Stock modal -->
+<div class="modal-backdrop" id="stkModal">
+  <div class="modal">
+    <div class="mhead"><h2>Upload Stock</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <p style="font-size:12px;color:var(--muted);margin:0">Excel/CSV: <b>Row Labels</b> (product code) and <b>Sum of Available Qty</b>. Previous stock is fully replaced.</p>
+      <input type="file" id="stkFile" accept=".xlsx,.xls,.csv">
+      <div class="pm-msg" id="stkMsg"></div>
+      <div style="font-size:12px;color:var(--muted)" id="stkStatus"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="products.js"></script>
+<script src="int-purchase-order.js"></script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internal Apps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#eef1f6; --card:#fff; --border:#d9dfe7; --text:#1a2332; --muted:#5a6675; --primary:#2563eb; --primary-dark:#1d4ed8; --danger:#dc2626; --success:#059669; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Inter',system-ui,sans-serif; font-size:14px; color:var(--text); background:var(--bg); min-height:100vh; }
+  .login-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5e9); }
+  .card { background:var(--card); border-radius:14px; padding:28px; width:min(400px,100%); box-shadow:0 10px 30px rgba(15,23,42,.3); }
+  .card h1 { margin:0 0 4px; font-size:20px; } .card p.sub { margin:0 0 18px; color:var(--muted); font-size:13px; }
+  .field { margin-bottom:12px; } .field label { display:block; font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
+  .field input, .field select { width:100%; padding:10px 12px; border:1px solid #b8c2cf; border-radius:6px; font:inherit; background:#fff; }
+  .field input:focus, .field select:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+  button { font:inherit; font-weight:600; cursor:pointer; border-radius:6px; border:1px solid transparent; padding:10px 16px; }
+  .btn-main { width:100%; background:var(--primary); color:#fff; } .btn-main:hover { background:var(--primary-dark); } .btn-main:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-sec { background:#fff; border-color:#b8c2cf; color:var(--text); } .btn-go { background:var(--primary); color:#fff; }
+  .msg { font-size:12px; font-weight:600; margin-top:10px; min-height:16px; } .msg.err { color:var(--danger); } .msg.ok { color:var(--success); }
+
+  .home { display:none; }
+  .topbar { background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5e9); color:#fff; padding:18px 28px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .topbar h1 { margin:0; font-size:20px; letter-spacing:1px; text-transform:uppercase; }
+  .who { font-size:13px; opacity:.9; } .btn-out { background:rgba(255,255,255,.14); color:#fff; border-color:rgba(255,255,255,.3); margin-left:12px; padding:7px 14px; }
+  .wrap { max-width:1000px; margin:0 auto; padding:28px 20px; }
+  .wrap h2 { font-size:13px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); margin:0 0 14px; }
+  .apps { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+  .app { display:block; text-align:left; width:100%; text-decoration:none; color:inherit; background:#fff; border:1px solid var(--border); border-radius:12px; padding:20px; transition:all .15s; font-weight:400; font-family:inherit; cursor:pointer; }
+  .app:hover { border-color:var(--primary); box-shadow:0 6px 18px rgba(37,99,235,.15); transform:translateY(-2px); }
+  .app .ico { font-size:28px; } .app h3 { margin:10px 0 4px; font-size:16px; } .app p { margin:0; color:var(--muted); font-size:13px; }
+
+  .backdrop { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:flex-start; justify-content:center; padding:5vh 12px; z-index:100; overflow-y:auto; }
+  .backdrop.show { display:flex; }
+  .modal { background:#fff; width:min(860px,100%); border-radius:14px; overflow:hidden; box-shadow:0 10px 30px rgba(15,23,42,.3); }
+  .mhead { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+  .mhead h2 { margin:0; font-size:15px; text-transform:uppercase; letter-spacing:.6px; } .mx { background:transparent; color:#fff; font-size:22px; padding:0 6px; }
+  .mbody { padding:18px 20px 20px; display:grid; grid-template-columns:1.3fr 1fr; gap:20px; }
+  @media (max-width:760px) { .mbody { grid-template-columns:1fr; } }
+  .ulist { max-height:60vh; overflow-y:auto; border:1px solid var(--border); border-radius:8px; }
+  .urow { display:flex; gap:8px; align-items:center; padding:9px 10px; border-bottom:1px solid #f1f3f7; cursor:pointer; font-size:12px; }
+  .urow:hover, .urow.sel { background:#f0f5ff; } .urow b { min-width:56px; } .urow .n { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag { font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; background:#e0e9ff; color:#1e40af; white-space:nowrap; }
+  .tag.off { background:#fee2e2; color:#991b1b; }
+  .row2 { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; } .chk { display:flex; gap:6px; align-items:center; font-size:13px; margin:6px 0 10px; }
+  .mode { font-size:12px; font-weight:700; padding:6px 10px; border-radius:6px; background:#e0e9ff; color:#1d4ed8; margin-bottom:12px; } .mode.edit { background:#fef3c7; color:#92400e; }
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="card">
+    <h1>Internal Apps</h1>
+    <p class="sub" id="loginSub">Sign in with your employee number</p>
+
+    <div id="step1">
+      <div class="field"><label>Employee No</label><input id="aEmp" inputmode="numeric" maxlength="6" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input id="aPw" type="password" autocomplete="current-password"></div>
+      <button class="btn-main" id="aGo">Sign in</button>
+    </div>
+    <div id="step2" hidden>
+      <div class="field"><label>One-time code (check your email)</label><input id="aOtp" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
+      <button class="btn-main" id="aVerify">Verify</button>
+    </div>
+    <div id="step3" hidden>
+      <div class="field"><label>Current password</label><input id="aOld" type="password" autocomplete="current-password"></div>
+      <div class="field"><label>New password (8+ chars, letters and numbers)</label><input id="aNew" type="password" autocomplete="new-password"></div>
+      <button class="btn-main" id="aChange">Save password</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<div class="home" id="home">
+  <div class="topbar">
+    <h1>Internal Apps</h1>
+    <div><span class="who" id="who"></span><button class="btn-out" id="bOut">Sign out</button></div>
+  </div>
+  <div class="wrap">
+    <h2>Your applications</h2>
+    <div class="apps" id="apps"></div>
+  </div>
+</div>
+
+<div class="backdrop" id="uModal">
+  <div class="modal">
+    <div class="mhead"><h2>User management</h2><button class="mx" id="uClose">×</button></div>
+    <div class="mbody">
+      <div>
+        <div class="field"><label>Search</label><input id="uSearch" placeholder="Employee no or name"></div>
+        <div class="ulist" id="uList"></div>
+      </div>
+      <div>
+        <div class="mode" id="uMode">New user</div>
+        <div class="field"><label>Employee No (6 digits)</label><input id="uEmp" maxlength="6" inputmode="numeric"></div>
+        <div class="field"><label>Name</label><input id="uName"></div>
+        <div class="field"><label>Role</label><select id="uRole"></select></div>
+        <div class="field"><label>Email (required for OTP roles)</label><input id="uEmail" type="email"></div>
+        <div class="field"><label>Designation</label><input id="uDes"></div>
+        <div class="field"><label>Division</label><input id="uDiv"></div>
+        <div class="field"><label id="uPwLabel">Temporary password</label><input id="uPw" type="text" autocomplete="off" placeholder="8+ chars, letters and numbers"></div>
+        <label class="chk" id="uActiveWrap" style="display:none"><input type="checkbox" id="uActive"> Active</label>
+        <div class="row2">
+          <button class="btn-go" id="uSave">Add user</button>
+          <button class="btn-sec" id="uUnlock" style="display:none">Unlock</button>
+          <button class="btn-sec" id="uNew">New</button>
+        </div>
+        <div class="msg" id="uMsg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://dark-truth-f3df.chamith-c96.workers.dev/api';
+const APPS = [
+  { name:'Internal Purchase Order', desc:'Prepare, review and approve internal purchase orders.', href:'int-purchase-order.html', icon:'🧾' },
+  { name:'Tender Costing', desc:'Coming soon.', href:'#', icon:'📊', disabled:true },
+  { name:'Tour Fuel', desc:'Coming soon.', href:'#', icon:'⛽', disabled:true },
+];
+const ROLE_LABEL = { user:'User', director_sales:'Director Sales', executive_finance:'Executive Finance', manager_finance:'Manager Finance', director_finance:'Director Finance', super_admin:'Super Admin' };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let token = sessionStorage.getItem('po_jwt') || '', pendingEmp = '', lastPw = '', ME = null, CAPS = {};
+
+const msg = (t,k) => { $('msg').textContent = t || ''; $('msg').className = 'msg ' + (k || ''); };
+const step = n => ['step1','step2','step3'].forEach((id,i) => $(id).hidden = i !== n-1);
+
+async function api(path, method='GET', payload) {
+  const r = await fetch(API + path, {
+    method,
+    headers: { 'Content-Type':'application/json', ...(token ? { Authorization:'Bearer ' + token } : {}) },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || ('Request failed (' + r.status + ')')); e.status = r.status; throw e; }
+  return j;
+}
+function saveToken(t) { token = t; sessionStorage.setItem('po_jwt', t); }
+function signOut() { sessionStorage.removeItem('po_jwt'); token=''; location.reload(); }
+
+function showApps(me) {
+  ME = me.user; CAPS = me.caps || {};
+  $('loginScreen').style.display = 'none';
+  $('home').style.display = 'block';
+  $('who').textContent = ME.name + ' · ' + (ROLE_LABEL[ME.role] || ME.role);
+  let html = APPS.map(a => a.disabled
+    ? `<div class="app" style="opacity:.6;cursor:not-allowed"><div class="ico">${a.icon}</div><h3>${a.name}</h3><p>${a.desc}</p></div>`
+    : `<a class="app" href="${a.href}"><div class="ico">${a.icon}</div><h3>${a.name}</h3><p>${a.desc}</p></a>`).join('');
+  if (CAPS.manage_users) html += `<button class="app" id="openUsers"><div class="ico">👥</div><h3>User management</h3><p>Add users and manage roles, passwords and access.</p></button>`;
+  $('apps').innerHTML = html;
+  if ($('openUsers')) $('openUsers').onclick = openUsers;
+}
+
+async function enter() {
+  const me = await api('/me');
+  if (me.user.must_change_password) { step(3); $('loginSub').textContent = 'Set a new password to continue'; msg(''); return; }
+  showApps(me);
+}
+async function afterAuth(j) {
+  saveToken(j.token);
+  if (j.must_change_password) { step(3); $('loginSub').textContent = 'Set a new password to continue'; msg(''); }
+  else await enter();
+}
+
+$('aGo').onclick = async () => {
+  try {
+    msg('Signing in…'); lastPw = $('aPw').value;
+    const j = await api('/login', 'POST', { emp: $('aEmp').value.trim(), password: lastPw });
+    if (j.otp_required) { pendingEmp = j.emp; step(2); msg('A one-time code was emailed to you.', 'ok'); }
+    else { $('aOld').value = lastPw; await afterAuth(j); }
+  } catch (e) { msg(e.message, 'err'); }
+};
+$('aVerify').onclick = async () => {
+  try { const j = await api('/verify-otp', 'POST', { emp: pendingEmp, code: $('aOtp').value.trim() }); $('aOld').value = lastPw; await afterAuth(j); }
+  catch (e) { msg(e.message, 'err'); }
+};
+$('aChange').onclick = async () => {
+  try {
+    const j = await api('/change-password', 'POST', { old_password: $('aOld').value, new_password: $('aNew').value });
+    saveToken(j.token); await enter();
+  } catch (e) { msg(e.message, 'err'); }
+};
+$('bOut').onclick = signOut;
+[['aEmp','aGo'],['aPw','aGo'],['aOtp','aVerify'],['aNew','aChange']].forEach(([i,b]) =>
+  $(i).addEventListener('keydown', e => { if (e.key === 'Enter') $(b).click(); }));
+
+let USERS = [], editing = null;
+const uMsg = (t,k) => { $('uMsg').textContent = t || ''; $('uMsg').className = 'msg ' + (k || ''); };
+
+function renderUsers() {
+  const q = $('uSearch').value.trim().toLowerCase();
+  const rows = USERS.filter(u => !q || u.emp.includes(q) || (u.name || '').toLowerCase().includes(q));
+  $('uList').innerHTML = rows.length ? rows.map(u =>
+    `<div class="urow ${editing && editing.emp === u.emp ? 'sel' : ''}" data-emp="${esc(u.emp)}"><b>${esc(u.emp)}</b><span class="n">${esc(u.name)}</span>` +
+    `<span class="tag">${esc(ROLE_LABEL[u.role] || u.role)}</span>${u.is_active ? '' : '<span class="tag off">inactive</span>'}</div>`).join('')
+    : '<div style="padding:14px;color:var(--muted)">No users</div>';
+}
+function resetForm() {
+  editing = null;
+  ['uEmp','uName','uEmail','uDes','uDiv','uPw'].forEach(id => $(id).value = '');
+  $('uEmp').disabled = false;
+  $('uRole').innerHTML = (CAPS.assignable_roles || []).map(r => `<option value="${r}">${ROLE_LABEL[r] || r}</option>`).join('');
+  $('uMode').textContent = 'New user'; $('uMode').classList.remove('edit');
+  $('uPwLabel').textContent = 'Temporary password'; $('uSave').textContent = 'Add user';
+  $('uActiveWrap').style.display = 'none'; $('uUnlock').style.display = 'none';
+  uMsg(''); renderUsers();
+}
+function pickUser(u) {
+  editing = u;
+  $('uEmp').value = u.emp; $('uEmp').disabled = true; $('uName').value = u.name || ''; $('uRole').value = u.role;
+  $('uEmail').value = u.email || ''; $('uDes').value = u.designation || ''; $('uDiv').value = u.division || ''; $('uPw').value = '';
+  $('uActive').checked = !!u.is_active;
+  $('uMode').textContent = 'Editing ' + u.emp; $('uMode').classList.add('edit');
+  $('uPwLabel').textContent = 'Reset password (leave blank to keep)'; $('uSave').textContent = 'Save changes';
+  $('uActiveWrap').style.display = 'flex'; $('uUnlock').style.display = '';
+  uMsg(''); renderUsers();
+}
+async function loadUsers() { USERS = (await api('/users')).users; renderUsers(); }
+async function openUsers() { $('uModal').classList.add('show'); resetForm(); try { await loadUsers(); } catch (e) { uMsg(e.message, 'err'); } }
+
+$('uList').addEventListener('click', e => { const r = e.target.closest('.urow'); if (r) pickUser(USERS.find(u => u.emp === r.dataset.emp)); });
+$('uSearch').addEventListener('input', renderUsers);
+$('uNew').onclick = resetForm;
+$('uClose').onclick = () => $('uModal').classList.remove('show');
+$('uModal').addEventListener('mousedown', e => { if (e.target === $('uModal')) $('uModal').classList.remove('show'); });
+
+$('uSave').onclick = async () => {
+  try {
+    const f = { name:$('uName').value, role:$('uRole').value, email:$('uEmail').value, designation:$('uDes').value, division:$('uDiv').value };
+    if (editing) {
+      const p = { ...f, is_active: $('uActive').checked }; if ($('uPw').value) p.password = $('uPw').value;
+      await api('/users/' + encodeURIComponent(editing.emp), 'PATCH', p);
+      uMsg('✓ Saved.', 'ok');
+    } else {
+      await api('/users', 'POST', { ...f, emp: $('uEmp').value.trim(), password: $('uPw').value });
+      uMsg('✓ User created. They must change the temporary password at first sign-in.', 'ok');
+    }
+    const keep = editing && editing.emp; await loadUsers();
+    if (keep) pickUser(USERS.find(u => u.emp === keep)); else { const m = $('uMsg').textContent; resetForm(); uMsg(m, 'ok'); }
+  } catch (e) { uMsg(e.message, 'err'); }
+};
+$('uUnlock').onclick = async () => {
+  try { await api('/users/' + encodeURIComponent(editing.emp), 'PATCH', { unlock: true }); uMsg('✓ Unlocked.', 'ok'); } catch (e) { uMsg(e.message, 'err'); }
+};
+
+(async () => {
+  if (!token) return;
+  try { await enter(); } catch (e) { sessionStorage.removeItem('po_jwt'); token=''; }
+})();
+</script>
+</body>
+</html>
