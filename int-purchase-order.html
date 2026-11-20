@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internal Purchase Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root { --bg:#eef1f6; --card:#fff; --line:#9aa3b0; --border:#d9dfe7; --border-strong:#b8c2cf; --text:#1a2332; --muted:#5a6675; --primary:#2563eb; --primary-dark:#1d4ed8; --success:#059669; --danger:#dc2626; --warn:#d97706; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',system-ui,-apple-system,sans-serif; font-size:13px; line-height:1.4; }
+  body { padding:16px 10px; }
+  .sheet { background:var(--card); max-width:1600px; margin:0 auto; border-radius:10px; box-shadow:0 8px 24px rgba(15,23,42,.1); overflow:hidden; }
+  .sheet-header { background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5e9); color:#fff; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+  .sheet-header h1 { font-size:18px; font-weight:800; letter-spacing:1.2px; margin:0; text-transform:uppercase; }
+  .subtitle { font-size:12px; opacity:.85; }
+  .toolbar { display:flex; gap:6px; flex-wrap:wrap; }
+  button { font:inherit; font-weight:600; padding:7px 13px; border-radius:6px; border:1px solid transparent; cursor:pointer; white-space:nowrap; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-primary { background:#fff; color:var(--primary-dark); }
+  .btn-ghost { background:rgba(255,255,255,.12); color:#fff; border-color:rgba(255,255,255,.28); }
+  .btn-ghost:hover { background:rgba(255,255,255,.22); }
+
+  /* order list with stage tabs */
+  .orders-panel { border-bottom:1px solid var(--border); background:#fbfcfe; padding:10px 20px 0; }
+  .orders-top { display:flex; gap:12px; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; }
+  .tabs { display:flex; gap:4px; overflow-x:auto; max-width:100%; }
+  .tab { background:transparent; color:var(--muted); border-radius:8px 8px 0 0; padding:8px 13px; }
+  .tab:hover { color:var(--text); background:#eef2fa; }
+  .tab.on { background:#fff; color:var(--primary-dark); border-color:var(--border); border-bottom-color:#fff; position:relative; top:1px; }
+  .tab .cnt { background:#e5e7eb; color:#374151; border-radius:999px; font-size:11px; padding:1px 7px; margin-left:4px; }
+  .tab.on .cnt { background:var(--primary); color:#fff; }
+  #ordSearch { padding:6px 10px; border:1px solid var(--border-strong); border-radius:6px; font:inherit; width:240px; max-width:100%; margin-bottom:6px; }
+  #ordList { background:#fff; border:1px solid var(--border); border-radius:0 8px 8px 8px; max-height:280px; overflow-y:auto; margin-bottom:12px; }
+  .ord-row { display:grid; grid-template-columns:56px 1fr 170px 90px 130px 26px; gap:10px; padding:8px 10px; border-bottom:1px solid #f1f3f7; cursor:pointer; font-size:12px; align-items:center; }
+  .ord-row:hover { background:#f0f5ff; } .ord-row.sel { background:#e0e9ff; }
+  .ord-row .g { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ord-row .amt { text-align:right; font-family:'JetBrains Mono',monospace; }
+  .ord-row .rj { color:var(--danger); font-size:11px; margin-left:6px; }
+  .empty { padding:18px; color:var(--muted); text-align:center; }
+
+  /* action bar (kept OUTSIDE #sheetBody so read-only mode can't block the buttons) */
+  .actionbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 20px 0; }
+  .actionbar button { color:#fff; }
+  .st-chip { display:inline-block; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700; text-transform:uppercase; background:#e0e9ff; color:#1e40af; }
+
+  .sheet-body { padding:10px 20px 18px; }
+  .ro { pointer-events:none; opacity:.9; }
+
+  /* order details: compact excel-like header block */
+  .hdr-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); border-top:1px solid var(--line); border-left:1px solid var(--line); margin-bottom:10px; }
+  .hdr-grid .f { border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:2px 6px 3px; min-width:0; }
+  .hdr-grid .f.wide { grid-column:span 2; }
+  .hdr-grid label { display:block; font-size:9px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+  .hdr-grid input, .hdr-grid select { width:100%; border:0; background:transparent; font:inherit; font-size:13px; padding:1px 0; color:var(--text); }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--primary); outline-offset:-1px; }
+
+  /* product table: plain grid lines */
+  .table-wrap { overflow-x:auto; }
+  table#productTable { width:100%; min-width:1050px; table-layout:fixed; border-collapse:collapse; font-size:11px; }
+  table#productTable th, table#productTable td { border:1px solid var(--line); padding:0; vertical-align:top; }
+  table#productTable th { background:#eceff4; font-size:9px; font-weight:700; text-transform:uppercase; color:#333; padding:4px; text-align:left; line-height:1.2; word-wrap:break-word; }
+  table#productTable:not(.show-ship) .ship-col { display:none; }
+  table#productTable td input, table#productTable td select, table#productTable td textarea { display:block; width:100%; border:0; background:transparent; font:inherit; font-size:11px; padding:4px; color:var(--text); }
+  table#productTable td textarea { resize:none; overflow:hidden; min-height:24px; line-height:1.3; }
+  table#productTable td.num input { text-align:right; }
+  table#productTable td.calc { padding:4px; text-align:right; font-weight:600; background:#f6f7fa; word-break:break-all; }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; } input[type=number] { -moz-appearance:textfield; }
+  .del-btn { width:20px; height:20px; padding:0; background:transparent; color:var(--danger); font-size:15px; line-height:1; margin:2px auto; display:block; }
+  .del-btn:hover { background:#fee2e2; }
+  .c-code{width:9%}.c-desc{width:17%}.c-packs{width:6%}.c-price{width:7%}.c-ship{width:7%}.c-onhand{width:7%}.c-sdq{width:7%}.c-qty{width:6%}.c-total{width:9%}.c-ams{width:5%}.c-dur{width:6%}.c-free{width:6%}.c-urg{width:9%}.c-eta{width:9%}.c-del{width:26px}
+  .info { font-size:11px; color:var(--muted); margin-top:4px; }
+
+  /* notes (one line) + sign-off + total */
+  .notes-row { display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-top:0; padding:2px 6px; }
+  .notes-row label { font-size:9px; font-weight:700; color:var(--muted); text-transform:uppercase; }
+  .notes-row input { flex:1; border:0; background:transparent; font:inherit; padding:3px 0; }
+  .bottom { display:flex; gap:14px; align-items:stretch; justify-content:space-between; flex-wrap:wrap; margin-top:12px; }
+  .signs { display:flex; gap:10px; flex-wrap:wrap; }
+  .sign { width:190px; border:1px solid var(--line); padding:3px 6px; }
+  .sign .t { font-size:9px; font-weight:700; color:var(--muted); text-transform:uppercase; }
+  .sig-box { height:48px; display:flex; align-items:center; justify-content:center; }
+  .sig-box img { max-height:44px; max-width:100%; }
+  .sig-ph { color:var(--muted); font-size:11px; }
+  .sign .n { font-size:10px; min-height:13px; }
+  .total-block { display:flex; align-items:center; gap:10px; border:1px solid var(--line); padding:4px 10px; align-self:flex-end; }
+  .total-block .label { font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); }
+  .total-block .value { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; min-width:120px; text-align:right; }
+
+  .ac-list { position:fixed; background:#fff; border:1px solid var(--primary); border-radius:6px; max-height:260px; overflow-y:auto; z-index:9999; display:none; box-shadow:0 4px 12px rgba(15,23,42,.15); }
+  .ac-list > div { padding:6px 10px; cursor:pointer; font-size:11px; border-bottom:1px solid #f1f3f7; display:flex; align-items:center; gap:8px; }
+  .ac-list > div:hover, .ac-list > div.active { background:var(--primary); color:#fff; }
+  .ac-list .code { font-weight:700; font-family:'JetBrains Mono',monospace; min-width:60px; }
+  .ac-list .desc { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ac-list .packs { font-size:10px; margin-left:auto; white-space:nowrap; }
+
+  .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:flex-start; justify-content:center; padding:6vh 12px 12px; z-index:10000; overflow-y:auto; }
+  .modal-backdrop.show { display:flex; }
+  .modal { background:#fff; width:min(680px,100%); border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(15,23,42,.2); }
+  .mhead { background:linear-gradient(135deg,#1e3a8a,#2563eb); color:#fff; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; }
+  .mhead h2 { margin:0; font-size:14px; text-transform:uppercase; letter-spacing:.6px; }
+  .mx { background:transparent; color:#fff; font-size:22px; padding:0 6px; border:none; }
+  .mbody { padding:16px 18px 18px; display:flex; flex-direction:column; gap:12px; }
+  .field { display:flex; flex-direction:column; }
+  .field label { font-size:11px; font-weight:600; color:var(--muted); margin-bottom:4px; text-transform:uppercase; }
+  .field input { padding:8px 10px; border:1px solid var(--border-strong); border-radius:6px; font:inherit; }
+  .pm-msg { font-size:12px; min-height:16px; font-weight:600; } .pm-msg.ok { color:var(--success); } .pm-msg.err { color:var(--danger); }
+  .modal .sig-box { border:1px dashed var(--border-strong); border-radius:8px; height:auto; min-height:80px; padding:8px; }
+  .modal .sig-box img { max-height:70px; }
+  .st { padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; text-transform:uppercase; }
+  #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1a2332; color:#fff; padding:10px 18px; border-radius:8px; font-weight:600; display:none; z-index:99999; }
+  #toast.err { background:var(--danger); }
+  @media (max-width:640px) { .orders-panel, .actionbar, .sheet-body { padding-left:10px; padding-right:10px; } .ord-row { grid-template-columns:50px 1fr 100px; } .ord-row .g:nth-of-type(2), .ord-row .g:nth-of-type(3) { display:none; } }
+
+  @page { size:A4 landscape; margin:7mm; }
+  @media print {
+    html, body { background:#fff; font-size:10px; } body { padding:0; }
+    .toolbar, .orders-panel, .actionbar, #emptyHint, #toast, .del-btn, .c-del, .ac-list, .info { display:none !important; }
+    .sheet { box-shadow:none; border-radius:0; max-width:none; }
+    .sheet-header { background:none !important; color:#000; padding:0 0 4px; } .sheet-header h1 { font-size:14px; }
+    .sheet-body { padding:0; } .ro { opacity:1; }
+    .table-wrap { overflow:visible; } table#productTable { min-width:0; font-size:9px; }
+    table#productTable td input, table#productTable td select, table#productTable td textarea { font-size:9px; padding:2px 3px; }
+    select { -webkit-appearance:none; appearance:none; }
+    input[type=date]::-webkit-calendar-picker-indicator { display:none; }
+    .hdr-grid input, .hdr-grid select { font-size:11px; }
+    tr, .bottom { break-inside:avoid; } thead { display:table-header-group; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="sheet-header">
+    <div>
+      <h1>Internal Purchase Order</h1>
+      <div class="subtitle" id="whoChip">Loading…</div>
+    </div>
+    <div class="toolbar">
+      <button class="btn-ghost" id="bBack">← Apps</button>
+      <button class="btn-ghost" id="bList">📋 Orders</button>
+      <button class="btn-ghost" id="bNew">+ New</button>
+      <button class="btn-ghost" id="bSig">✍ Signature</button>
+      <button class="btn-ghost" id="bProducts" style="display:none">🗂 Products</button>
+      <button class="btn-ghost" id="bAms" style="display:none">📈 AMS</button>
+      <button class="btn-ghost" id="bStock" style="display:none">📦 Stock</button>
+      <button class="btn-ghost" id="bCsv">⬇ CSV</button>
+      <button class="btn-primary" id="bPrint">🖨 Print / PDF</button>
+      <button class="btn-ghost" id="bOut">Sign out</button>
+    </div>
+  </div>
+
+  <div class="orders-panel" id="ordPanel">
+    <div class="orders-top">
+      <div class="tabs" id="ordTabs" role="tablist"></div>
+      <input type="search" id="ordSearch" placeholder="Search # / supplier / ref / name" autocomplete="off">
+    </div>
+    <div id="ordList"></div>
+  </div>
+
+  <div class="actionbar">
+    <span class="st-chip" id="stChip">New order</span>
+    <button id="bSave" style="background:var(--primary);display:none">Save Draft</button>
+    <button id="bSubmit" style="background:var(--success);display:none">Submit for Review</button>
+    <button id="bReview" style="background:var(--warn);display:none">Pass Review</button>
+    <button id="bApprove" style="background:var(--success);display:none">Approve</button>
+    <button id="bReject" style="background:var(--danger);display:none">Reject</button>
+    <button id="bAddRow" style="background:#fff;color:var(--text);border-color:var(--border-strong);display:none">+ Add Row</button>
+  </div>
+
+  <div class="empty" id="emptyHint" style="display:none;padding:28px">Select an order from the list above to view it.</div>
+
+  <div class="sheet-body" id="sheetBody">
+    <div class="hdr-grid">
+      <div class="f wide"><label>Supplier</label><input type="text" id="supplier"></div>
+      <div class="f"><label>Date</label><input type="date" id="orderDate"></div>
+      <div class="f"><label>Month</label><input type="text" id="month"></div>
+      <div class="f"><label>Order Ref No</label><input type="text" id="orderRef"></div>
+      <div class="f"><label>INCO Terms</label><select id="incoTerm"><option>CIF</option><option>FOB</option><option>CIP</option><option>CFR</option><option>EXW</option><option>CPT</option><option>FCA</option></select></div>
+      <div class="f"><label>Currency</label><select id="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>LKR</option><option>INR</option><option>CNY</option><option>JPY</option><option>AUD</option><option>SGD</option><option>AED</option></select></div>
+      <div class="f"><label>Payment Method</label><select id="paymentMethod"><option>L/C</option><option>T/T</option></select></div>
+      <div class="f" id="ttDaysWrap" style="display:none"><label>Credit Days</label><input type="number" id="ttDays" min="0" step="1"></div>
+      <div class="f"><label>Shipping Method</label><select id="shippingMethod"><option>Air freight</option><option>Sea freight</option></select></div>
+      <div class="f"><label>Market</label><select id="market"><option>Tender Market</option><option>Private Market</option></select></div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="productTable">
+        <thead><tr>
+          <th class="c-code">Product Code</th>
+          <th class="c-desc">Description</th>
+          <th class="c-packs">Packs</th>
+          <th class="c-price" id="priceTh">CIF</th>
+          <th class="c-ship ship-col" id="shipTh">Shipping</th>
+          <th class="c-onhand" id="onHandTh">On Hand Balance</th>
+          <th class="c-sdq">Shipment Due Qty</th>
+          <th class="c-qty">Quantity</th>
+          <th class="c-total" id="totalTh">Total</th>
+          <th class="c-ams">AMS</th>
+          <th class="c-dur">Stock Duration</th>
+          <th class="c-free">Free Goods (QTY)</th>
+          <th class="c-urg">Shipment / Urgency</th>
+          <th class="c-eta">ETA</th>
+          <th class="c-del"></th>
+        </tr></thead>
+        <tbody id="productBody"></tbody>
+      </table>
+    </div>
+    <div class="info" id="amsInfo"></div>
+    <div class="info" id="stkInfo"></div>
+
+    <div class="notes-row"><label for="notes">Notes</label><input type="text" id="notes" autocomplete="off"></div>
+
+    <div class="bottom">
+      <div class="signs">
+        <div class="sign"><div class="t">Prepared By</div><div class="sig-box" id="sigPrep"><span class="sig-ph">signed automatically</span></div><div class="n"><span id="sigPrepN"></span> <span style="color:var(--muted)" id="sigPrepD"></span></div></div>
+        <div class="sign"><div class="t">Reviewed By</div><div class="sig-box" id="sigRev"><span class="sig-ph">—</span></div><div class="n"><span id="sigRevN"></span> <span style="color:var(--muted)" id="sigRevD"></span></div></div>
+        <div class="sign"><div class="t">Approved By</div><div class="sig-box" id="sigApp"><span class="sig-ph">—</span></div><div class="n"><span id="sigAppN"></span> <span style="color:var(--muted)" id="sigAppD"></span></div></div>
+      </div>
+      <div class="total-block">
+        <span class="label" id="totalLabel">Total Order Value</span>
+        <span class="value" id="totalOrderValue">0.00</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Signature modal -->
+<div class="modal-backdrop" id="sigModal">
+  <div class="modal">
+    <div class="mhead"><h2>My Signature</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <p style="font-size:12px;color:var(--muted);margin:0">Upload a PNG of your signature (max 150 KB, transparent background recommended). It will be applied automatically when you submit, review or approve.</p>
+      <div class="sig-box" id="sigPrev"><span class="sig-ph">No signature uploaded</span></div>
+      <input type="file" id="sigFile" accept="image/png">
+      <button class="btn-primary" id="sigSave" style="background:var(--primary);color:#fff" disabled>Save Signature</button>
+      <div class="pm-msg" id="sigMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Products modal -->
+<div class="modal-backdrop" id="pmModal">
+  <div class="modal">
+    <div class="mhead"><h2>Update Products</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <div class="field"><label>Search product</label><input id="pmSearch" autocomplete="off" placeholder="Type to search or leave empty for new"></div>
+      <div id="pmList" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;display:none"></div>
+      <div class="field"><label>Product Code</label><input id="pmCode"></div>
+      <div class="field"><label>Description</label><input id="pmDesc"></div>
+      <div class="field"><label>Packs</label><input id="pmPacks"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-primary" id="pmUpdateBtn" style="background:var(--primary);color:#fff" disabled>Update Record</button>
+        <button class="btn-primary" id="pmAddBtn" style="background:var(--success);color:#fff">Add as New</button>
+        <button class="btn-ghost" id="pmClearBtn" style="background:#fff;color:var(--text);border-color:var(--border-strong)">Clear</button>
+        <button class="btn-ghost" id="pmImport" style="background:#fff;color:var(--text);border-color:var(--border-strong)">Import products.js</button>
+      </div>
+      <div class="pm-msg" id="pmMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- AMS modal -->
+<div class="modal-backdrop" id="amsModal">
+  <div class="modal">
+    <div class="mhead"><h2>Upload AMS</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <p style="font-size:12px;color:var(--muted);margin:0">Excel/CSV: <b>Part No</b> then three <b>&lt;Month&gt;_Invoiced Quantity</b> columns. Average is computed server-side.</p>
+      <input type="file" id="amsFile" accept=".xlsx,.xls,.csv">
+      <div class="pm-msg" id="amsMsg"></div>
+      <div style="font-size:12px;color:var(--muted)" id="amsStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Stock modal -->
+<div class="modal-backdrop" id="stkModal">
+  <div class="modal">
+    <div class="mhead"><h2>Upload Stock</h2><button class="mx" data-close>×</button></div>
+    <div class="mbody">
+      <p style="font-size:12px;color:var(--muted);margin:0">Excel/CSV: <b>Row Labels</b> (product code) and <b>Sum of Available Qty</b>. Previous stock is fully replaced.</p>
+      <input type="file" id="stkFile" accept=".xlsx,.xls,.csv">
+      <div class="pm-msg" id="stkMsg"></div>
+      <div style="font-size:12px;color:var(--muted)" id="stkStatus"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="products.js"></script>
+<script src="int-purchase-order.js"></script>
+</body>
+</html>
